@@ -1,10 +1,13 @@
 'use client';
 
+import { useState } from "react";
 import Image from "next/image";
 import Button from "./components/Button";
 import ChevronRight from "./components/ChevronRight";
 
 export default function Home() {
+  const [isPressed, setIsPressed] = useState(false);
+
   return (
     <div 
       className="relative w-full h-screen overflow-hidden"
@@ -25,27 +28,36 @@ export default function Home() {
       />
       
       {/* Mobile container - 390px max width as per Figma */}
-      <div className="relative mx-auto max-w-[390px] h-full flex flex-col gap-0">
+      <div className="relative mx-auto max-w-[640px] h-full flex flex-col gap-0">
       
         {/* Hero photo - main central image */}
-        <div className="relative w-full h-[480px] overflow-hidden">
-          <div className="absolute left-1/2 top-0 -translate-x-1/2 w-[390px] h-[78%] overflow-hidden" style={{ left: '438px', top: '229px' }}>
-            
-          </div>
-          <div className="relative w-full h-full" style={{ display: 'flex', flexWrap: 'wrap', transform: 'rotate(90deg)' }}>
+        <div 
+          className="relative w-full h-[600px] flex items-end justify-center cursor-pointer"
+          onTouchStart={() => setIsPressed(true)}
+          onTouchEnd={() => setIsPressed(false)}
+          onMouseDown={() => setIsPressed(true)}
+          onMouseUp={() => setIsPressed(false)}
+          onMouseLeave={() => setIsPressed(false)}
+        >
+          <div 
+            className="relative flex items-center justify-center"
+            style={{ 
+              width: '480px',
+              height: '540px',
+              transform: `rotate(${isPressed ? 12.5 : 0}deg) scale(${isPressed ? 1.1 : 1})`,
+              transition: 'transform 0.2s ease-out',
+            }}
+          >
             <Image
-              src="/Asset/herophoto.png"
+              src="/Asset/herophoto2.png"
               alt="Hero postcards"
-              width={564}
-              height={640}
-              className="absolute object-cover"
+              width={480}
+              height={520}
+              className="object-cover"
               style={{ 
-                width: '144.48%', 
-                height: 'auto', 
-                left: '197px', 
-                top: '50%', 
-                transform: 'translate(-50%, -50%) rotate(270deg)',
-                margin: 'auto'
+                width: '90%', 
+                height: '90%', 
+                objectFit: 'cover'
               }}
               priority
             />
@@ -54,10 +66,10 @@ export default function Home() {
 
         {/* Content section - bottom of screen */}
         <div className="relative z-10 w-full flex flex-col items-center pb-8 px-4" style={{ height: '300px' }}>
-          <div className="w-[279px] flex flex-col gap-4 items-center">
+          <div className="w-[279px] flex flex-col gap-6 items-center">
             {/* Text content */}
             <div className="flex flex-col gap-1 items-start w-full text-center">
-              <h1 className="font-courier text-[32px] leading-normal tracking-[-1.6px] text-[#454545] w-full font-normal">
+              <h1 className="font-courier text-[40px] leading-normal tracking-[-1.6px] text-[#454545] w-full font-normal">
                 Thattime
               </h1>
               <div className="font-courier text-[20px] leading-[1.2] tracking-[-1px] text-[#6b6b6b] w-full">
