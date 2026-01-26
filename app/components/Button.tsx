@@ -4,13 +4,17 @@ interface ButtonProps {
   children: React.ReactNode;
   onClick?: () => void;
   className?: string;
+  disabled?: boolean;
 }
 
-export default function Button({ children, onClick, className = '' }: ButtonProps) {
+export default function Button({ children, onClick, className = '', disabled = false }: ButtonProps) {
   return (
     <button
       onClick={onClick}
-      className={`relative inline-flex items-center justify-center cursor-pointer transition-opacity hover:opacity-90 ${className}`}
+      disabled={disabled}
+      className={`relative inline-flex items-center justify-center transition-opacity ${
+        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:opacity-90'
+      } ${className}`}
     >
       <div className="flex flex-col items-center justify-center overflow-clip pr-px">
         <div className="flex flex-col items-center justify-center">

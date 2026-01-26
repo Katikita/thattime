@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Button from "./components/Button";
 import ChevronRight from "./components/ChevronRight";
 
 export default function Home() {
+  const router = useRouter();
   const [isPressed, setIsPressed] = useState(false);
 
   return (
@@ -27,8 +29,8 @@ export default function Home() {
         }}
       />
       
-      {/* Mobile container - 390px max width as per Figma */}
-      <div className="relative mx-auto max-w-[640px] h-full flex flex-col gap-0">
+      {/* Mobile container - responsive width */}
+      <div className="relative mx-auto w-full max-w-[440px] h-full flex flex-col gap-0 px-4">
       
         {/* Hero photo - main central image */}
         <div 
@@ -42,8 +44,8 @@ export default function Home() {
           <div 
             className="relative flex items-center justify-center"
             style={{ 
-              width: '480px',
-              height: '540px',
+              width: 'min(95vw, 360px)',
+              height: 'min(calc(95vw * 1.125), 405px)',
               transform: `rotate(${isPressed ? 12.5 : 0}deg) scale(${isPressed ? 1.1 : 1})`,
               transition: 'transform 0.2s ease-out',
             }}
@@ -79,7 +81,7 @@ export default function Home() {
             </div>
 
             {/* CTA Button */}
-            <Button onClick={() => console.log('Get started clicked')}>
+            <Button onClick={() => router.push('/upload')}>
               <span className="font-mono text-[16px] leading-normal text-[#f8f8f8] uppercase font-normal">
                 Get started
               </span>
