@@ -16,7 +16,10 @@ export default function UploadPage() {
       setIsUploading(true);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setUploadedImage(reader.result as string);
+        const imageData = reader.result as string;
+        setUploadedImage(imageData);
+        // Save to localStorage for Step 2
+        localStorage.setItem('uploadedImage', imageData);
         setIsUploading(false);
       };
       reader.readAsDataURL(file);

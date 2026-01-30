@@ -11,6 +11,7 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-courier: var(--font-courier);
+  --font-permanent-marker: var(--font-permanent-marker);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -24,4 +25,10 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Courier Prime", Arial, Helvetica, sans-serif;
+}
+
+/* Caption placeholder styling */
+.caption-textarea::placeholder {
+  color: rgba(58, 58, 58, 0.3) !important;
+  opacity: 1;
 }
