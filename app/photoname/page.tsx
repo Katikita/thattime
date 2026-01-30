@@ -17,16 +17,12 @@ export default function PhotoNamePage() {
     }
 
     // Autofocus on caption input when arriving from Step 1
-    // Use setTimeout for better mobile keyboard support
-    const timer = setTimeout(() => {
+    // Use requestAnimationFrame for desktop focus + mobile keyboard best-effort
+    requestAnimationFrame(() => {
       if (captionRef.current) {
-        captionRef.current.focus();
-        // Scroll into view for mobile to ensure keyboard doesn't cover input
-        captionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        captionRef.current.focus({ preventScroll: true });
       }
-    }, 100);
-
-    return () => clearTimeout(timer);
+    });
   }, []);
 
   const handleBack = () => {
@@ -42,6 +38,11 @@ export default function PhotoNamePage() {
 
   const handleCaptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     let value = e.target.value;
+    
+    // Optional: maxLength ~50 chars to avoid overflow
+    if (value.length > 50) {
+      value = value.slice(0, 50);
+    }
     
     // Clamp pasted newlines to 2 lines
     const lines = value.split('\n');
@@ -105,43 +106,25 @@ export default function PhotoNamePage() {
           <h1 className="font-courier text-[32px] text-[#000000] leading-[1.1] tracking-[-1.6px]">
             Name your memory
           </h1>
-          <p className="font-courier text-[20px] text-[#6b6b6b] tracking-[-0.8px]">
+          <p className="font-courier text-[20px] text-[#6b6b6b] tracking-[-0.8px] leading-[24px]">
             Let's write it down it marker (trip names, time, etc.,)
           </p>
         </div>
 
-        {/* Next button */}
-        <div className="mb-6 h-fit">
-          <button
-            onClick={handleNext}
-            className="w-full h-[56px] rounded-full font-courier text-[16px] tracking-[-0.8px] transition-colors"
-            style={{
-              backgroundColor: '#000000',
-              color: '#ffffff',
-            }}
-          >
-            Next
-          </button>
-        </div>
 
-        {/* Polaroid area */}
-        <div className="flex-1 flex items-center justify-center pb-8 overflow-hidden">
-          <div className="relative flex items-center justify-center" style={{ 
-            width: 'min(100%, 450px)', 
-            height: 'min(100%, 450px)',
-            maxWidth: '450px',
-            maxHeight: '450px',
-          }}>
+        {/* Upload area */}
+        <div className="flex-1 flex items-center justify-center pb-8">
+          <div className="relative flex items-center justify-center" style={{ width: '500px', height: '450px' }}>
             {/* Old tape decoration */}
             <img
               src="/Asset/oldtape2.png"
               alt=""
               className="absolute pointer-events-none"
               style={{
-                width: 'min(40vw, 180px)',
+                width: '180px',
                 height: 'auto',
                 top: '-22px',
-                left: 'min(60vw, 272px)',
+                left: '272px',
                 zIndex: 20,
                 transform: 'rotate(22.5deg)',
               }}
@@ -151,18 +134,17 @@ export default function PhotoNamePage() {
             <div
               className="absolute"
               style={{
-                width: 'min(90vw, 450px)',
-                height: 'min(67.5vw, 337.5px)',
-                aspectRatio: '4/3',
+                width: 450,
+                height: 337.5,
                 left: '50%',
                 top: '50%',
-                transform: 'translate(-50%, calc(-50% - 24px)) rotate(-8deg)',
+                transform: 'translate(-50%, calc(-50% - 24px)) rotate( -16deg)',
                 backgroundColor: '#F4F4F4',
                 backgroundSize: '100% 100%',
                 backgroundPosition: 'center',
                 boxShadow: '0 10px 30px rgba(0, 0, 0, 0.15)',
-                padding: 'min(3.3vw, 15px)',
-                paddingBottom: 'min(6.8vw, 30.6px)',
+                padding: 15,
+                paddingBottom: 30.6,
                 boxSizing: 'border-box',
                 display: 'flex',
                 flexDirection: 'column',
@@ -170,7 +152,7 @@ export default function PhotoNamePage() {
                 justifyContent: 'flex-start',
               }}
             >
-              {/* Inner photo area */}
+              {/* Inner photo area - auto-fills available space */}
               <div
                 style={{
                   flex: 1,
@@ -199,21 +181,20 @@ export default function PhotoNamePage() {
                 )}
               </div>
 
-              {/* Caption area - bottom frame */}
+              {/* Marker caption input - positioned on bottom white border */}
               <div
+                className="absolute"
                 style={{
-                  width: '100%',
-                  height: 'min(13.3vw, 60px)',
-                  minHeight: '60px',
+                  left: 60,
+                  right: 0,
+                  bottom: '8px',
+                  paddingLeft: '24px',
+                  paddingRight: '110px',
+                  height: '72px',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  position: 'relative',
-                  paddingRight: 'min(22.2vw, 100px)', // Safe area for marker graphic
-                  paddingLeft: 'min(4.4vw, 20px)',
-                  paddingTop: '5px',
-                  paddingBottom: '5px',
-                  boxSizing: 'border-box',
+                  alignItems: 'flex-end',
+                  justifyContent: 'left',
+                  zIndex: 15,
                 }}
               >
                 <textarea
@@ -221,42 +202,50 @@ export default function PhotoNamePage() {
                   value={caption}
                   onChange={handleCaptionChange}
                   onKeyDown={handleKeyDown}
-                  onBlur={() => {
-                    // Keep text when blurring (default behavior)
-                  }}
-                  placeholder="Write your memory here..."
+                  placeholder="Write your memory..."
+                  maxLength={50}
                   rows={2}
-                  className="caption-textarea w-full text-center resize-none border-none outline-none bg-transparent"
+                  className="marker-caption"
                   style={{
-                    fontFamily: 'var(--font-permanent-marker), "Permanent Marker", cursive',
-                    fontSize: 'min(8vw, 36px)',
-                    lineHeight: 'min(8vw, 36px)',
-                    letterSpacing: '-1.8px',
+                    width: '100%',
+                    height: '72px',
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    resize: 'none',
+                    boxShadow: 'none',
+                    overflow: 'hidden',
                     color: '#3A3A3A',
                     textAlign: 'center',
-                    overflow: 'hidden',
-                    caretColor: '#3A3A3A',
-                    width: '100%',
-                    height: '100%',
+                    fontFamily: 'var(--font-permanent-marker), "Permanent Marker", cursive',
+                    fontSize: '36px',
+                    fontWeight: 400,
+                    lineHeight: '36px',
+                    letterSpacing: '-1.8px',
+                    padding: 0,
+                    margin: 0,
+                    verticalAlign: 'bottom',
                   }}
                 />
               </div>
 
-              {/* Marker graphic overlay */}
+              {/* Marker graphic overlay - positioned at bottom right */}
               <img
                 src="/Asset/marker.png"
                 alt=""
                 className="absolute pointer-events-none"
                 style={{
-                  width: 'auto',
-                  height: 'min(26.7vw, 120px)',
-                  bottom: '5px',
-                  right: '5px',
+                  width: '320px',
+                  height: '320px',
+                  top: '269px',
+                  left: '240px',
                   zIndex: 10,
-                  transform: 'rotate(-15deg)',
+                  transform: 'rotate(8deg)',
+                  boxShadow: 'none',
                 }}
               />
             </div>
+            
           </div>
         </div>
       </div>

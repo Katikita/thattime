@@ -5,3 +5,8 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+// Configure server to use localhost instead of 0.0.0.0
+if (typeof require !== 'undefined') {
+  const { createServer } = require('http');
+}
+
