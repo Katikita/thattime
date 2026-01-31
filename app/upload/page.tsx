@@ -16,7 +16,10 @@ export default function UploadPage() {
       setIsUploading(true);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setUploadedImage(reader.result as string);
+        const imageDataUrl = reader.result as string;
+        setUploadedImage(imageDataUrl);
+        // Save to localStorage so it persists to next step
+        localStorage.setItem('uploadedImage', imageDataUrl);
         setIsUploading(false);
       };
       reader.readAsDataURL(file);
@@ -66,7 +69,7 @@ export default function UploadPage() {
           <h1 className="font-courier text-[32px] leading-normal tracking-[-1.6px] text-[#000000] font-normal">
             Upload your photo
           </h1>
-          <p className="font-courier text-[20px] text-[#6b6b6b] tracking-[-0.8px]">
+          <p className="font-courier text-[20px] text-[#6b6b6b] tracking-[-0.8px] leading-[24px]">
             Photo will adjust to fit automatically
           </p>
         </div>
@@ -75,7 +78,13 @@ export default function UploadPage() {
         <div className="mb-6 h-fit">
           <Button 
             disabled={!uploadedImage}
-            onClick={() => router.push('/photoname')}
+            onClick={() => {
+              // Ensure image is saved to localStorage before navigating
+              if (uploadedImage) {
+                localStorage.setItem('uploadedImage', uploadedImage);
+              }
+              router.push('/photoname');
+            }}
           >
             <span className="font-mono text-[14px] leading-normal text-[#f8f8f8] uppercase font-normal">
               Next

@@ -2,6 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
+import Button from '../components/Button';
+
+const MAX_LINES = 3;
+const LINE_HEIGHT = 36; // must match your lineHeight
+const MAX_CHARS = 44;   // pick your cap (was 50)
 
 export default function PhotoNamePage() {
   const router = useRouter();
@@ -32,34 +37,28 @@ export default function PhotoNamePage() {
   const handleNext = () => {
     // Save caption to localStorage for next step
     localStorage.setItem('caption', caption);
-    // TODO: Navigate to next step
-    console.log('Caption:', caption);
+    router.push('/writepostcard');
   };
 
   const handleCaptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     let value = e.target.value;
-    
-    // Optional: maxLength ~50 chars to avoid overflow
-    if (value.length > 50) {
-      value = value.slice(0, 50);
-    }
-    
-    // Clamp pasted newlines to 2 lines
+
+    // hard cap chars
+    if (value.length > MAX_CHARS) value = value.slice(0, MAX_CHARS);
+
+    // hard cap explicit newlines
     const lines = value.split('\n');
-    if (lines.length > 2) {
-      value = lines.slice(0, 2).join('\n');
+    if (lines.length > MAX_LINES) {
+      value = lines.slice(0, MAX_LINES).join('\n');
     }
-    
+
     setCaption(value);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Prevent 3rd line on Enter
     if (e.key === 'Enter') {
-      const lines = caption.split('\n');
-      if (lines.length >= 2) {
-        e.preventDefault();
-      }
+      const lines = caption.split('\n').length;
+      if (lines >= MAX_LINES) e.preventDefault();
     }
   };
 
@@ -111,6 +110,16 @@ export default function PhotoNamePage() {
           </p>
         </div>
 
+        {/* Next button */}
+        <div className="mb-6 h-fit">
+          <Button 
+            onClick={handleNext}
+          >
+            <span className="font-mono text-[14px] leading-normal text-[#f8f8f8] uppercase font-normal">
+              Next
+            </span>
+          </Button>
+        </div>
 
         {/* Upload area */}
         <div className="flex-1 flex items-center justify-center pb-8">
@@ -185,48 +194,57 @@ export default function PhotoNamePage() {
               <div
                 className="absolute"
                 style={{
-                  left: 60,
-                  right: 0,
-                  bottom: '8px',
-                  paddingLeft: '24px',
-                  paddingRight: '110px',
-                  height: '72px',
+                  right: '24px',     // leave space so it doesn't sit under the marker image
+                  bottom: '4px',
+                  width: '260px',     // control how "corner" it feels
+                  height: '108px',    // 36 * 3 lines
                   display: 'flex',
                   alignItems: 'flex-end',
-                  justifyContent: 'left',
+                  justifyContent: 'flex-end',
                   zIndex: 15,
                 }}
               >
-                <textarea
-                  ref={captionRef}
-                  value={caption}
-                  onChange={handleCaptionChange}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Write your memory..."
-                  maxLength={50}
-                  rows={2}
-                  className="marker-caption"
-                  style={{
-                    width: '100%',
-                    height: '72px',
-                    background: 'transparent',
-                    border: 'none',
-                    outline: 'none',
-                    resize: 'none',
-                    boxShadow: 'none',
-                    overflow: 'hidden',
-                    color: '#3A3A3A',
-                    textAlign: 'center',
-                    fontFamily: 'var(--font-permanent-marker), "Permanent Marker", cursive',
-                    fontSize: '36px',
-                    fontWeight: 400,
-                    lineHeight: '36px',
-                    letterSpacing: '-1.8px',
-                    padding: 0,
-                    margin: 0,
-                    verticalAlign: 'bottom',
-                  }}
-                />
+                {(() => {
+                  const lineCount = Math.min(
+                    MAX_LINES,
+                    Math.max(1, caption.split('\n').length || 1)
+                  );
+                  const padTop = (MAX_LINES - lineCount) * LINE_HEIGHT;
+
+                  return (
+                    <textarea
+                      ref={captionRef}
+                      value={caption}
+                      onChange={handleCaptionChange}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Write your memory..."
+                      maxLength={MAX_CHARS}
+                      rows={MAX_LINES}
+                      className="marker-caption"
+                      style={{
+                        width: '100%',
+                        height: `${LINE_HEIGHT * MAX_LINES}px`, // 3 lines height
+                        lineHeight: `${LINE_HEIGHT}px`,
+                        paddingTop: `${padTop}px`,              // 👈 key: start at bottom
+                        paddingBottom: '0px',
+                        background: 'transparent',
+                        border: 'none',
+                        outline: 'none',
+                        resize: 'none',
+                        overflow: 'hidden',                     // no scroll, pushes up by padding change
+                        color: '#3A3A3A',
+                        textAlign: 'right',                     // if you want right corner feel
+                        textAlignLast: 'right',
+                        fontFamily: 'var(--font-permanent-marker), "Permanent Marker", cursive',
+                        fontSize: '36px',
+                        fontWeight: 400,
+                        letterSpacing: '-1.8px',
+                        margin: 0,
+                        transform: 'rotate(-2deg)',
+                      }}
+                    />
+                  );
+                })()}
               </div>
 
               {/* Marker graphic overlay - positioned at bottom right */}
@@ -237,7 +255,7 @@ export default function PhotoNamePage() {
                 style={{
                   width: '320px',
                   height: '320px',
-                  top: '269px',
+                  top: '224px',
                   left: '240px',
                   zIndex: 10,
                   transform: 'rotate(8deg)',
