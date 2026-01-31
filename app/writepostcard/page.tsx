@@ -52,7 +52,6 @@ export default function WritePostcardPage() {
     localStorage.setItem('cardMessage', message);
     localStorage.setItem('cardFrom', fromName.trim());
 
-    // TODO: change to your next route
     router.push('/preview');
   };
 
