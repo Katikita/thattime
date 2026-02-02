@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Button from "../components/Button";
@@ -9,6 +9,36 @@ export default function UploadPage() {
   const router = useRouter();
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const frameRef = useRef<HTMLLabelElement>(null);
+  
+  // Target transform for this page
+  const TARGET_TRANSFORM = 'translate(-50%, calc(-50% - 24px)) rotate(-8deg)';
+
+  useEffect(() => {
+    // Initialize frame transform from sessionStorage or use target
+    const savedTransform = sessionStorage.getItem('frameTransform');
+    if (frameRef.current) {
+      if (savedTransform) {
+        // Start from saved transform, then animate to target
+        frameRef.current.style.transform = savedTransform;
+        frameRef.current.style.transition = 'none';
+        frameRef.current.style.willChange = 'transform';
+        
+        // Trigger animation on next frame
+        requestAnimationFrame(() => {
+          if (frameRef.current) {
+            frameRef.current.style.transition = 'transform 1200ms cubic-bezier(.2,.8,.2,1)';
+            frameRef.current.style.transform = TARGET_TRANSFORM;
+          }
+        });
+      } else {
+        // No saved transform, use target directly
+        frameRef.current.style.transform = TARGET_TRANSFORM;
+        frameRef.current.style.transition = 'transform 1200ms cubic-bezier(.2,.8,.2,1)';
+        frameRef.current.style.willChange = 'transform';
+      }
+    }
+  }, []);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -24,6 +54,20 @@ export default function UploadPage() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleNext = () => {
+    // Save current frame transform before navigation
+    if (frameRef.current) {
+      const currentTransform = frameRef.current.style.transform || TARGET_TRANSFORM;
+      sessionStorage.setItem('frameTransform', currentTransform);
+    }
+    
+    // Ensure image is saved to localStorage before navigating
+    if (uploadedImage) {
+      localStorage.setItem('uploadedImage', uploadedImage);
+    }
+    router.push('/photoname');
   };
 
   return (
@@ -78,13 +122,7 @@ export default function UploadPage() {
         <div className="mb-6 h-fit">
           <Button 
             disabled={!uploadedImage}
-            onClick={() => {
-              // Ensure image is saved to localStorage before navigating
-              if (uploadedImage) {
-                localStorage.setItem('uploadedImage', uploadedImage);
-              }
-              router.push('/photoname');
-            }}
+            onClick={handleNext}
           >
             <span className="font-mono text-[14px] leading-normal text-[#f8f8f8] uppercase font-normal">
               Next
@@ -121,6 +159,7 @@ export default function UploadPage() {
             
             {/* Polaroid photo frame */}
             <label
+              ref={frameRef}
               htmlFor="photo-upload"
               className="cursor-pointer absolute"
               style={{
@@ -128,7 +167,6 @@ export default function UploadPage() {
                 height: 337.5,
                 left: '50%',
                 top: '50%',
-                transform: 'translate(-50%, calc(-50% - 24px)) rotate(-8deg)',
                 backgroundColor: '#F4F4F4',
                 backgroundSize: '100% 100%',
                 backgroundPosition: 'center',

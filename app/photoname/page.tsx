@@ -12,7 +12,12 @@ export default function PhotoNamePage() {
   const router = useRouter();
   const [caption, setCaption] = useState('');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [isTextareaFocused, setIsTextareaFocused] = useState(false);
   const captionRef = useRef<HTMLTextAreaElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  
+  // Target transform for this page
+  const TARGET_TRANSFORM = 'translate(-50%, calc(-50% - 24px)) rotate(-16deg)';
 
   useEffect(() => {
     // Get uploaded image from localStorage
@@ -21,22 +26,64 @@ export default function PhotoNamePage() {
       setUploadedImage(savedImage);
     }
 
-    // Autofocus on caption input when arriving from Step 1
-    // Use requestAnimationFrame for desktop focus + mobile keyboard best-effort
-    requestAnimationFrame(() => {
-      if (captionRef.current) {
-        captionRef.current.focus({ preventScroll: true });
+    // Initialize frame transform from sessionStorage or use target
+    const savedTransform = sessionStorage.getItem('frameTransform');
+    if (frameRef.current) {
+      if (savedTransform) {
+        // Start from saved transform, then animate to target
+        frameRef.current.style.transform = savedTransform;
+        frameRef.current.style.transition = 'none';
+        frameRef.current.style.willChange = 'transform';
+        
+        // Trigger animation on next frame
+        requestAnimationFrame(() => {
+          if (frameRef.current) {
+            frameRef.current.style.transition = 'transform 1200ms cubic-bezier(.2,.8,.2,1)';
+            frameRef.current.style.transform = TARGET_TRANSFORM;
+          }
+        });
+      } else {
+        // No saved transform, use target directly
+        frameRef.current.style.transform = TARGET_TRANSFORM;
+        frameRef.current.style.transition = 'transform 1200ms cubic-bezier(.2,.8,.2,1)';
+        frameRef.current.style.willChange = 'transform';
       }
-    });
+    }
+
+    // Autofocus on caption input - only on desktop (not touch devices)
+    // iOS Safari has issues with programmatic focus causing horizontal scroll
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (!isTouchDevice) {
+      requestAnimationFrame(() => {
+        if (captionRef.current) {
+          captionRef.current.focus({ preventScroll: true });
+        }
+      });
+    }
   }, []);
 
   const handleBack = () => {
+    // Save current frame transform before navigation
+    if (frameRef.current) {
+      const currentTransform = frameRef.current.style.transform || TARGET_TRANSFORM;
+      sessionStorage.setItem('frameTransform', currentTransform);
+    }
     router.push('/upload');
   };
 
   const handleNext = () => {
     // Save caption to localStorage for next step
     localStorage.setItem('caption', caption);
+    
+    // Save current frame transform before navigation
+    if (frameRef.current) {
+      const currentTransform = frameRef.current.style.transform || TARGET_TRANSFORM;
+      sessionStorage.setItem('frameTransform', currentTransform);
+    }
+    
+    // Set flag to trigger flip-in animation on writepostcard page
+    sessionStorage.setItem('enterFlip', 'true');
+    
     router.push('/writepostcard');
   };
 
@@ -62,9 +109,31 @@ export default function PhotoNamePage() {
     }
   };
 
+  const handleCaptionFocus = () => {
+    setIsTextareaFocused(true);
+  };
+
+  const handleCaptionBlur = () => {
+    setIsTextareaFocused(false);
+    // Reset scroll positions on blur to fix iOS Safari horizontal scroll bug
+    window.scrollTo(0, 0);
+    if (document.documentElement) {
+      document.documentElement.scrollLeft = 0;
+    }
+    if (document.body) {
+      document.body.scrollLeft = 0;
+    }
+  };
+
+  const handleDoneClick = () => {
+    if (captionRef.current) {
+      captionRef.current.blur();
+    }
+  };
+
   return (
     <div 
-      className="relative w-full h-screen overflow-hidden"
+      className="relative w-full min-h-[100dvh] overflow-x-hidden"
       style={{
         background: 'linear-gradient(90deg, rgb(240, 252, 255) 0%, rgb(240, 252, 255) 100%)',
       }}
@@ -102,7 +171,7 @@ export default function PhotoNamePage() {
           <p className="font-courier font-bold text-[16px] text-[#6b6b6b] tracking-[-0.8px]">
             Step 2
           </p>
-          <h1 className="font-courier text-[32px] text-[#000000] leading-[1.1] tracking-[-1.6px]">
+          <h1 className="font-courier text-[32px] text-[#000000] leading-normal tracking-[-1.6px]">
             Name your memory
           </h1>
           <p className="font-courier text-[20px] text-[#6b6b6b] tracking-[-0.8px] leading-[24px]">
@@ -123,7 +192,7 @@ export default function PhotoNamePage() {
 
         {/* Upload area */}
         <div className="flex-1 flex items-center justify-center pb-8">
-          <div className="relative flex items-center justify-center" style={{ width: '500px', height: '450px' }}>
+          <div className="relative flex items-center justify-center" style={{ width: 'min(95vw, 450px)', aspectRatio: '4/3' }}>
             {/* Old tape decoration */}
             <img
               src="/Asset/oldtape2.png"
@@ -141,13 +210,13 @@ export default function PhotoNamePage() {
             
             {/* Polaroid photo frame */}
             <div
+              ref={frameRef}
               className="absolute"
               style={{
-                width: 450,
-                height: 337.5,
+                width: '100%',
+                aspectRatio: '4/3',
                 left: '50%',
                 top: '50%',
-                transform: 'translate(-50%, calc(-50% - 24px)) rotate( -16deg)',
                 backgroundColor: '#F4F4F4',
                 backgroundSize: '100% 100%',
                 backgroundPosition: 'center',
@@ -195,8 +264,8 @@ export default function PhotoNamePage() {
                 className="absolute"
                 style={{
                   right: '24px',     // leave space so it doesn't sit under the marker image
-                  bottom: '4px',
-                  width: '260px',     // control how "corner" it feels
+                  bottom: '8px',
+                  width: 'calc(100% - 48px)',     // responsive width
                   height: '108px',    // 36 * 3 lines
                   display: 'flex',
                   alignItems: 'flex-end',
@@ -217,6 +286,8 @@ export default function PhotoNamePage() {
                       value={caption}
                       onChange={handleCaptionChange}
                       onKeyDown={handleKeyDown}
+                      onFocus={handleCaptionFocus}
+                      onBlur={handleCaptionBlur}
                       placeholder="Write your memory..."
                       maxLength={MAX_CHARS}
                       rows={MAX_LINES}
@@ -266,6 +337,28 @@ export default function PhotoNamePage() {
             
           </div>
         </div>
+
+        {/* Fixed "Done" button for iOS Safari - appears when textarea is focused */}
+        {isTextareaFocused && (
+          <button
+            onClick={handleDoneClick}
+            className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50"
+            style={{
+              background: '#7DBFD6',
+              padding: '12px 24px',
+              borderRadius: '8px',
+              fontFamily: 'var(--font-courier, Courier, monospace)',
+              fontWeight: 700,
+              fontSize: '16px',
+              letterSpacing: '1px',
+              color: 'white',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              cursor: 'pointer',
+            }}
+          >
+            Done
+          </button>
+        )}
       </div>
     </div>
   );
