@@ -12,12 +12,24 @@ export default function PhotoNamePage() {
   const router = useRouter();
   const [caption, setCaption] = useState('');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [isTextareaFocused, setIsTextareaFocused] = useState(false);
   const captionRef = useRef<HTMLTextAreaElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   
   // Target transform for this page
   const TARGET_TRANSFORM = 'translate(-50%, calc(-50% - 24px)) rotate(-16deg)';
+
+  useEffect(() => {
+    // Detect desktop vs mobile
+    const checkDesktop = () => {
+      setIsDesktop(window.matchMedia('(min-width: 768px)').matches);
+    };
+    checkDesktop();
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    mediaQuery.addEventListener('change', checkDesktop);
+    return () => mediaQuery.removeEventListener('change', checkDesktop);
+  }, []);
 
   useEffect(() => {
     // Get uploaded image from localStorage
@@ -53,14 +65,14 @@ export default function PhotoNamePage() {
     // Autofocus on caption input - only on desktop (not touch devices)
     // iOS Safari has issues with programmatic focus causing horizontal scroll
     const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    if (!isTouchDevice) {
+    if (!isTouchDevice && isDesktop) {
       requestAnimationFrame(() => {
         if (captionRef.current) {
           captionRef.current.focus({ preventScroll: true });
         }
       });
     }
-  }, []);
+  }, [isDesktop]);
 
   const handleBack = () => {
     // Save current frame transform before navigation
@@ -116,7 +128,7 @@ export default function PhotoNamePage() {
   const handleCaptionBlur = () => {
     setIsTextareaFocused(false);
     // Reset scroll positions on blur to fix iOS Safari horizontal scroll bug
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, left: 0 });
     if (document.documentElement) {
       document.documentElement.scrollLeft = 0;
     }
@@ -131,9 +143,15 @@ export default function PhotoNamePage() {
     }
   };
 
+  // Calculate frame dimensions: desktop exact, mobile responsive
+  const frameW = isDesktop ? 450 : 'min(95vw, 450px)';
+  const frameH = isDesktop ? 337.5 : 'calc(min(95vw, 450px) * 0.75)';
+  const wrapperW = isDesktop ? 500 : 'min(95vw, 450px)';
+  const wrapperH = isDesktop ? 450 : 'calc(min(95vw, 450px) * 0.75)';
+
   return (
     <div 
-      className="relative w-full min-h-[100dvh] overflow-x-hidden"
+      className={`relative w-full overflow-x-hidden ${isDesktop ? 'h-screen overflow-hidden' : 'min-h-[100dvh]'}`}
       style={{
         background: 'linear-gradient(90deg, rgb(240, 252, 255) 0%, rgb(240, 252, 255) 100%)',
       }}
@@ -192,7 +210,7 @@ export default function PhotoNamePage() {
 
         {/* Upload area */}
         <div className="flex-1 flex items-center justify-center pb-8">
-          <div className="relative flex items-center justify-center" style={{ width: 'min(95vw, 450px)', aspectRatio: '4/3' }}>
+          <div className="relative flex items-center justify-center" style={{ width: wrapperW, height: wrapperH }}>
             {/* Old tape decoration */}
             <img
               src="/Asset/oldtape2.png"
@@ -213,8 +231,8 @@ export default function PhotoNamePage() {
               ref={frameRef}
               className="absolute"
               style={{
-                width: '100%',
-                aspectRatio: '4/3',
+                width: frameW,
+                height: frameH,
                 left: '50%',
                 top: '50%',
                 backgroundColor: '#F4F4F4',
@@ -265,7 +283,7 @@ export default function PhotoNamePage() {
                 style={{
                   right: '24px',     // leave space so it doesn't sit under the marker image
                   bottom: '8px',
-                  width: 'calc(100% - 48px)',     // responsive width
+                  width: isDesktop ? '388px' : 'calc(100% - 48px)',     // responsive width
                   height: '108px',    // 36 * 3 lines
                   display: 'flex',
                   alignItems: 'flex-end',
@@ -338,11 +356,11 @@ export default function PhotoNamePage() {
           </div>
         </div>
 
-        {/* Fixed "Done" button for iOS Safari - appears when textarea is focused */}
-        {isTextareaFocused && (
+        {/* Fixed "Done" button for mobile only - appears when textarea is focused */}
+        {isTextareaFocused && !isDesktop && (
           <button
             onClick={handleDoneClick}
-            className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50"
+            className="fixed bottom-6 right-6 z-50"
             style={{
               background: '#7DBFD6',
               padding: '12px 24px',
