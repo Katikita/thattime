@@ -6,6 +6,48 @@ import { supabase } from '@/lib/supabaseClient';
 import { dataUrlToBlob } from '@/lib/utils';
 
 type Side = 'front' | 'back';
+type ShareStatus = 'idle' | 'creating' | 'ready' | 'error';
+
+// Helper: Create share link (upload + insert)
+async function createShareLink(): Promise<string> {
+  const dataUrl = localStorage.getItem('uploadedImage');
+  if (!dataUrl) throw new Error('No photo found');
+
+  const caption = localStorage.getItem('caption') ?? '';
+  const to_name = localStorage.getItem('cardTo') ?? '';
+  const message = localStorage.getItem('cardMessage') ?? '';
+  const from_name = localStorage.getItem('cardFrom') ?? '';
+  const template_ver = 1;
+
+  // 1) Upload image
+  const blob = dataUrlToBlob(dataUrl);
+  const filePath = `postcards/${crypto.randomUUID()}.jpg`;
+
+  const { error: uploadErr } = await supabase.storage
+    .from('postcard')
+    .upload(filePath, blob, { contentType: blob.type, upsert: false });
+
+  if (uploadErr) {
+    throw new Error(`Upload failed: ${uploadErr.message}`);
+  }
+
+  // 2) Get public URL
+  const { data: pub } = supabase.storage.from('postcard').getPublicUrl(filePath);
+  const photo_url = pub.publicUrl;
+
+  // 3) Insert row
+  const { data: row, error: insertErr } = await supabase
+    .from('postcard')
+    .insert([{ photo_url, caption, to_name, message, from_name, template_ver }])
+    .select('id')
+    .single();
+
+  if (insertErr || !row) {
+    throw new Error(`Database insert failed: ${insertErr?.message || 'Unknown error'}`);
+  }
+
+  return `${window.location.origin}/p/${row.id}`;
+}
 
 export default function PreviewPage() {
   const router = useRouter();
@@ -16,6 +58,13 @@ export default function PreviewPage() {
   const [toName, setToName] = useState('');
   const [message, setMessage] = useState('');
   const [fromName, setFromName] = useState('');
+  
+  // Share state
+  const [shareStatus, setShareStatus] = useState<ShareStatus>('idle');
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   
   // Track initial polaroid transform for smooth animation
   // Centered horizontally with translateX(-50%)
@@ -30,6 +79,42 @@ export default function PreviewPage() {
   const envelopeRef = useRef<HTMLImageElement>(null);
   const boardingPassRef = useRef<HTMLImageElement>(null);
   const polaroidRef = useRef<HTMLDivElement>(null);
+
+  // Helper: Share URL - always copy to clipboard
+  const doShare = async (url: string): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setToastMessage('Copied ✅');
+      setTimeout(() => setToastMessage(null), 2000);
+    } catch (err) {
+      // Clipboard failed, show modal fallback
+      setIsShareModalOpen(true);
+    }
+  };
+
+  // Create share link on mount (check cache first)
+  useEffect(() => {
+    const cachedUrl = sessionStorage.getItem('share_url');
+    if (cachedUrl) {
+      setShareUrl(cachedUrl);
+      setShareStatus('ready');
+      return;
+    }
+
+    // Create new share link
+    setShareStatus('creating');
+    createShareLink()
+      .then((url) => {
+        setShareUrl(url);
+        setShareStatus('ready');
+        sessionStorage.setItem('share_url', url);
+      })
+      .catch((error) => {
+        console.error('Failed to create share link:', error);
+        setShareError(error.message);
+        setShareStatus('error');
+      });
+  }, []);
 
   useEffect(() => {
     const img = localStorage.getItem('uploadedImage');
@@ -174,101 +259,41 @@ export default function PreviewPage() {
   };
 
   const handleShare = async () => {
-    const dataUrl = localStorage.getItem('uploadedImage');
-    if (!dataUrl) return alert('No photo found.');
+    if (!shareUrl || shareStatus !== 'ready') return;
+    await doShare(shareUrl);
+  };
 
-    const caption = localStorage.getItem('caption') ?? '';
-    const to_name = localStorage.getItem('cardTo') ?? '';
-    const message = localStorage.getItem('cardMessage') ?? '';
-    const from_name = localStorage.getItem('cardFrom') ?? '';
-    const template_ver = 1;
-
+  const handleRetry = async () => {
+    setShareStatus('creating');
+    setShareError(null);
     try {
-      // 1) upload image
-      const blob = dataUrlToBlob(dataUrl);
-      const filePath = `postcards/${crypto.randomUUID()}.jpg`;
-
-      console.log('Uploading to storage bucket "postcard"...');
-      const { error: uploadErr, data: uploadData } = await supabase.storage
-        .from('postcard')
-        .upload(filePath, blob, { contentType: blob.type, upsert: false });
-
-      if (uploadErr) {
-        console.error('Storage upload error:', uploadErr);
-        console.error('Full error details:', JSON.stringify(uploadErr, null, 2));
-        
-        // Check if it's an RLS error
-        if (uploadErr.message?.includes('row-level security') || uploadErr.message?.includes('RLS')) {
-          alert(`Storage RLS Error: ${uploadErr.message}\n\nFix Storage RLS:\n1. Go to Supabase Dashboard → Storage → postcard bucket\n2. Click "Policies" tab\n3. Create policy:\n   - Name: "Allow public uploads"\n   - Operation: INSERT\n   - Target: anon, authenticated\n   - Policy: true\n4. OR disable Storage RLS in bucket settings`);
-        } else {
-          alert(`Storage upload failed: ${uploadErr.message || 'Unknown error'}\n\nCheck:\n1. Storage bucket "postcard" exists\n2. Storage RLS policies allow uploads\n3. Bucket is public\n\nError code: ${uploadErr.statusCode || 'unknown'}`);
-        }
-        return;
-      }
-
-      console.log('Upload successful:', uploadData);
-
-      // 2) get public url
-      const { data: pub } = supabase.storage.from('postcard').getPublicUrl(filePath);
-      const photo_url = pub.publicUrl;
-      console.log('Public URL:', photo_url);
-
-      // 3) insert row
-      console.log('Inserting into postcard table...');
-      console.log('Insert data:', { photo_url, caption, to_name, message, from_name, template_ver });
-      
-      const { data: row, error: insertErr } = await supabase
-        .from('postcard')
-        .insert([{ photo_url, caption, to_name, message, from_name, template_ver }])
-        .select('id')
-        .single();
-
-      if (insertErr || !row) {
-        console.error('Database insert error:', insertErr);
-        console.error('Error details:', JSON.stringify(insertErr, null, 2));
-        const errorMsg = insertErr?.message || 'Unknown error';
-        const errorCode = insertErr?.code || 'unknown';
-        const errorDetails = insertErr?.details || '';
-        
-        let troubleshooting = '';
-        if (errorMsg.includes('row-level security')) {
-          troubleshooting = '\n\nRLS Policy Fix:\n1. Open "Postcards: authenticated insert" policy\n2. Add USING clause: USING (true)\n3. Keep WITH CHECK: WITH CHECK (true)\n4. Save the policy\n\nOr try disabling RLS temporarily to test.';
-        } else if (errorMsg.includes('column') || errorMsg.includes('null')) {
-          troubleshooting = '\n\nSchema Issue:\n1. Check table columns match:\n   - photo_url (text)\n   - caption (text)\n   - to_name (text)\n   - message (text)\n   - from_name (text)\n   - template_ver (integer)\n2. Ensure id is UUID with default\n3. Ensure created_at has default';
-        }
-        
-        alert(`Database insert failed: ${errorMsg}\n\nError code: ${errorCode}\nDetails: ${errorDetails}${troubleshooting}\n\nCheck browser console (F12) for full error details.`);
-        return;
-      }
-
-      console.log('Insert successful, postcard ID:', row.id);
-
-      const url = `${window.location.origin}/p/${row.id}`;
-
-      // share / copy
-      // @ts-ignore
-      if (navigator.share) {
-        try {
-          // @ts-ignore
-          await navigator.share({ title: 'Postcard', url });
-          return;
-        } catch (err) {
-          // User cancelled or share failed, continue with clipboard
-        }
-      }
-      
-      // Fallback: copy to clipboard
-      try {
-        await navigator.clipboard.writeText(url);
-        alert('Link copied ✅\n\n' + url);
-      } catch (err) {
-        // Clipboard failed, show alert with link
-        alert('Share this link:\n\n' + url + '\n\n(Copy manually)');
-      }
-    } catch (error) {
-      console.error('Unexpected error in handleShare:', error);
-      alert(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const url = await createShareLink();
+      setShareUrl(url);
+      setShareStatus('ready');
+      sessionStorage.setItem('share_url', url);
+    } catch (error: any) {
+      setShareError(error.message);
+      setShareStatus('error');
     }
+  };
+
+  const handleCopyLink = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setToastMessage('Copied ✅');
+      setIsShareModalOpen(false);
+      setTimeout(() => setToastMessage(null), 2000);
+    } catch (err) {
+      setToastMessage('Failed to copy');
+      setTimeout(() => setToastMessage(null), 2000);
+    }
+  };
+
+  const handleOpenLink = () => {
+    if (!shareUrl) return;
+    window.open(shareUrl, '_blank');
+    setIsShareModalOpen(false);
   };
 
   const courierTitle: React.CSSProperties = {
@@ -299,8 +324,6 @@ export default function PreviewPage() {
     letterSpacing: '-1.8px',
   };
 
-  const cardW = 'min(95vw, 450px)';
-
   return (
     <div
       className="relative w-full h-screen overflow-hidden"
@@ -309,6 +332,124 @@ export default function PreviewPage() {
           'linear-gradient(90deg, rgb(240, 252, 255) 0%, rgb(240, 252, 255) 100%)',
       }}
     >
+      {/* Toast notification */}
+      {toastMessage && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#7DBFD6',
+            color: 'white',
+            padding: '12px 24px',
+            borderRadius: '8px',
+            fontFamily: 'var(--font-courier, Courier, monospace)',
+            fontSize: '14px',
+            fontWeight: 700,
+            letterSpacing: '1px',
+            zIndex: 1000,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            animation: 'fadeIn 0.2s ease-in',
+          }}
+        >
+          {toastMessage}
+        </div>
+      )}
+
+      {/* Bottom sheet modal for share fallback */}
+      {isShareModalOpen && shareUrl && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setIsShareModalOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 998,
+              animation: 'fadeIn 0.2s ease-in',
+            }}
+          />
+          {/* Modal */}
+          <div
+            style={{
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: 'white',
+              borderTopLeftRadius: '16px',
+              borderTopRightRadius: '16px',
+              padding: '24px',
+              zIndex: 999,
+              boxShadow: '0 -4px 20px rgba(0,0,0,0.15)',
+              animation: 'slideUp 0.3s ease-out',
+            }}
+          >
+            <div style={{ marginBottom: '20px' }}>
+              <h3
+                style={{
+                  fontFamily: 'var(--font-courier, Courier, monospace)',
+                  fontSize: '18px',
+                  fontWeight: 700,
+                  marginBottom: '8px',
+                }}
+              >
+                Share Postcard
+              </h3>
+              <p
+                style={{
+                  fontFamily: 'var(--font-courier, Courier, monospace)',
+                  fontSize: '14px',
+                  color: '#6b6b6b',
+                  wordBreak: 'break-all',
+                }}
+              >
+                {shareUrl}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', flexDirection: 'column' }}>
+              <button
+                onClick={handleCopyLink}
+                style={{
+                  background: '#7DBFD6',
+                  color: 'white',
+                  padding: '14px 24px',
+                  borderRadius: '8px',
+                  fontFamily: 'var(--font-courier, Courier, monospace)',
+                  fontWeight: 700,
+                  letterSpacing: '1px',
+                  fontSize: '14px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  width: '100%',
+                }}
+              >
+                Copy Link
+              </button>
+              <button
+                onClick={handleOpenLink}
+                style={{
+                  background: 'transparent',
+                  color: '#454545',
+                  padding: '14px 24px',
+                  borderRadius: '8px',
+                  fontFamily: 'var(--font-courier, Courier, monospace)',
+                  fontWeight: 700,
+                  letterSpacing: '1px',
+                  fontSize: '14px',
+                  border: '1px solid rgba(0,0,0,0.2)',
+                  cursor: 'pointer',
+                  width: '100%',
+                }}
+              >
+                Open Link
+              </button>
+            </div>
+          </div>
+        </>
+      )}
       {/* background texture */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -349,9 +490,10 @@ export default function PreviewPage() {
             </button>
 
             <button
-              onClick={handleShare}
+              onClick={shareStatus === 'error' ? handleRetry : handleShare}
+              disabled={shareStatus === 'creating' || shareStatus === 'idle' || !shareUrl}
               style={{
-                background: '#7DBFD6',
+                background: shareStatus === 'error' ? '#ff6b6b' : (shareStatus === 'creating' || shareStatus === 'idle' || !shareUrl) ? '#ccc' : '#7DBFD6',
                 padding: '10px 18px',
                 fontFamily: 'var(--font-courier, Courier, monospace)',
                 fontWeight: 700,
@@ -360,10 +502,13 @@ export default function PreviewPage() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 10,
-                cursor: 'pointer',
+                cursor: (shareStatus === 'creating' || shareStatus === 'idle' || !shareUrl) ? 'not-allowed' : 'pointer',
+                opacity: (shareStatus === 'creating' || shareStatus === 'idle' || !shareUrl) ? 0.6 : 1,
+                border: 'none',
               }}
             >
-              SHARE <span style={{ fontSize: 18, lineHeight: 1 }}>›</span>
+              {shareStatus === 'creating' ? 'Preparing…' : shareStatus === 'error' ? 'Retry' : 'SHARE'} 
+              {shareStatus === 'ready' && <span style={{ fontSize: 18, lineHeight: 1 }}>›</span>}
             </button>
           </div>
         </div>
@@ -421,14 +566,16 @@ export default function PreviewPage() {
           {/* Flip card (polaroid) */}
           <div
             ref={polaroidRef}
-            className="absolute left-1/2 top-1/2"
+            className="polaroid-frame absolute left-1/2 top-1/2"
             style={{
               transform: polaroidInitialTransform,
               transformOrigin: polaroidTransformOrigin,
               opacity: polaroidInitialOpacity,
-              width: cardW,
-              aspectRatio: '4 / 3',
               zIndex: 2,
+              background: 'transparent',
+              boxShadow: 'none',
+              padding: 0,
+              paddingBottom: 0,
             }}
           >
             <div style={{ width: '100%', height: '100%', perspective: 1200 }}>
@@ -455,8 +602,8 @@ export default function PreviewPage() {
                     backfaceVisibility: 'hidden',
                     background: '#F4F4F4',
                     boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
-                    padding: 14,
-                    paddingBottom: 36,
+                    padding: 15,
+                    paddingBottom: 30.6,
                     boxSizing: 'border-box',
                     display: 'flex',
                     flexDirection: 'column',
@@ -484,8 +631,8 @@ export default function PreviewPage() {
                     style={{
                       position: 'absolute',
                       right: 18,
-                      bottom: 10,
-                      width: '70%',
+                      bottom: 8,
+                      width: '100%',
                       textAlign: 'right',
                       ...markerStyle,
                       transform: 'rotate(-2deg)',

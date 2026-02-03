@@ -5,31 +5,23 @@ import "./globals.css";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-  display: 'swap',
-  fallback: ['system-ui', 'arial'],
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-  display: 'swap',
-  fallback: ['monospace'],
 });
 
 const courierPrime = Courier_Prime({
   weight: ['400', '700'],
   subsets: ['latin'],
   variable: '--font-courier',
-  display: 'swap',
-  fallback: ['Courier New', 'monospace'],
 });
 
 const permanentMarker = Permanent_Marker({
   weight: ['400'],
   subsets: ['latin'],
   variable: '--font-permanent-marker',
-  display: 'swap',
-  fallback: ['cursive'],
 });
 
 export const metadata: Metadata = {

@@ -143,12 +143,6 @@ export default function PhotoNamePage() {
     }
   };
 
-  // Calculate frame dimensions: desktop exact, mobile responsive
-  const frameW = isDesktop ? 450 : 'min(95vw, 450px)';
-  const frameH = isDesktop ? 337.5 : 'calc(min(95vw, 450px) * 0.75)';
-  const wrapperW = isDesktop ? 500 : 'min(95vw, 450px)';
-  const wrapperH = isDesktop ? 450 : 'calc(min(95vw, 450px) * 0.75)';
-
   return (
     <div 
       className={`relative w-full overflow-x-hidden ${isDesktop ? 'h-screen overflow-hidden' : 'min-h-[100dvh]'}`}
@@ -210,7 +204,7 @@ export default function PhotoNamePage() {
 
         {/* Upload area */}
         <div className="flex-1 flex items-center justify-center pb-8">
-          <div className="relative flex items-center justify-center" style={{ width: wrapperW, height: wrapperH }}>
+          <div className="relative w-full flex items-center justify-center" style={{ minHeight: 450 }}>
             {/* Old tape decoration */}
             <img
               src="/Asset/oldtape2.png"
@@ -220,7 +214,7 @@ export default function PhotoNamePage() {
                 width: '180px',
                 height: 'auto',
                 top: '-22px',
-                left: '272px',
+                left: '60%',
                 zIndex: 20,
                 transform: 'rotate(22.5deg)',
               }}
@@ -229,23 +223,10 @@ export default function PhotoNamePage() {
             {/* Polaroid photo frame */}
             <div
               ref={frameRef}
-              className="absolute"
+              className="polaroid-frame absolute"
               style={{
-                width: frameW,
-                height: frameH,
                 left: '50%',
                 top: '50%',
-                backgroundColor: '#F4F4F4',
-                backgroundSize: '100% 100%',
-                backgroundPosition: 'center',
-                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.15)',
-                padding: 15,
-                paddingBottom: 30.6,
-                boxSizing: 'border-box',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'stretch',
-                justifyContent: 'flex-start',
               }}
             >
               {/* Inner photo area - auto-fills available space */}
@@ -282,14 +263,14 @@ export default function PhotoNamePage() {
                 className="absolute"
                 style={{
                   right: '24px',     // leave space so it doesn't sit under the marker image
-                  bottom: '8px',
+                  bottom: '7px',
                   width: isDesktop ? '388px' : 'calc(100% - 48px)',     // responsive width
                   height: '108px',    // 36 * 3 lines
                   display: 'flex',
                   alignItems: 'flex-end',
                   justifyContent: 'flex-end',
                   zIndex: 15,
-                }}
+                }}  
               >
                 {(() => {
                   const lineCount = Math.min(
@@ -342,10 +323,11 @@ export default function PhotoNamePage() {
                 alt=""
                 className="absolute pointer-events-none"
                 style={{
-                  width: '320px',
-                  height: '320px',
-                  top: '224px',
-                  left: '240px',
+                  width: '71%',
+                  height: 'auto',
+                  aspectRatio: '1 / 1',
+                  top: '66%',
+                  left: '53%',
                   zIndex: 10,
                   transform: 'rotate(8deg)',
                   boxShadow: 'none',

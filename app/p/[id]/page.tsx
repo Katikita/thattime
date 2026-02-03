@@ -367,8 +367,8 @@ export default function PostcardShareView() {
                     style={{
                       position: "absolute",
                       right: 18,
-                      bottom: 10,
-                      width: "70%",
+                      bottom: 8,
+                      width: "100%",
                       transform: "rotate(-2deg)",
                       whiteSpace: "pre-wrap",
                       overflow: "hidden",

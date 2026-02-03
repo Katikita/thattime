@@ -157,7 +157,7 @@ export default function WritePostcardPage() {
   const handStyle: React.CSSProperties = {
     color: '#686868',
     fontFamily: '"Bradley Hand", cursive',
-    fontSize: 16, // Minimum 16px to prevent iOS zoom on input focus
+    fontSize: 14,
     fontStyle: 'normal',
     fontWeight: 700,
     lineHeight: '150%',
@@ -242,11 +242,13 @@ export default function WritePostcardPage() {
         <div className="flex-1 relative pb-8">
           <div
             ref={frameRef}
-            className="absolute left-1/2 top-1/2"
+            className="polaroid-frame absolute left-1/2 top-1/2"
             style={{
-              width: 450,
-              height: 337.5,
               opacity: 1,
+              background: 'transparent',
+              boxShadow: 'none',
+              padding: 0,
+              paddingBottom: 0,
             }}
           >
             {/* 3D Flip Card Container */}

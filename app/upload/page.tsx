@@ -132,7 +132,7 @@ export default function UploadPage() {
 
         {/* Upload area */}
         <div className="flex-1 flex items-center justify-center pb-8">
-          <div className="relative flex items-center justify-center" style={{ width: '500px', height: '450px' }}>
+          <div className="relative w-full flex items-center justify-center" style={{ minHeight: 450 }}>
             {/* Hidden file input */}
             <input
               type="file"
@@ -151,7 +151,7 @@ export default function UploadPage() {
                 width: '180px',
                 height: 'auto',
                 top: '-22px',
-                left: '272px',
+                left: '60%',
                 zIndex: 20,
                 transform: 'rotate(22.5deg)',
               }}
@@ -161,23 +161,10 @@ export default function UploadPage() {
             <label
               ref={frameRef}
               htmlFor="photo-upload"
-              className="cursor-pointer absolute"
+              className="polaroid-frame cursor-pointer absolute"
               style={{
-                width: 450,
-                height: 337.5,
                 left: '50%',
                 top: '50%',
-                backgroundColor: '#F4F4F4',
-                backgroundSize: '100% 100%',
-                backgroundPosition: 'center',
-                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.15)',
-                padding: 15,
-                paddingBottom: 30.6,
-                boxSizing: 'border-box',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'stretch',
-                justifyContent: 'flex-start',
               }}
             >
               {/* Inner photo area - auto-fills available space */}
