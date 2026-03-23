@@ -8,6 +8,95 @@ import { dataUrlToBlob } from '@/lib/utils';
 type Side = 'front' | 'back';
 type ShareStatus = 'idle' | 'creating' | 'ready' | 'error';
 
+// CACHE CONFIGURATION
+const CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+const CACHE_KEY_URL = 'share_url';
+const CACHE_KEY_SIGNATURE = 'share_data_signature';
+const CACHE_KEY_TIMESTAMP = 'share_timestamp';
+
+/**
+ * Generate a data signature from current localStorage data.
+ * This signature changes whenever any postcard field changes (photo, caption, to, message, from).
+ * Used to detect if cached link is stale (data was edited).
+ */
+function generateDataSignature(): string {
+  const dataUrl = localStorage.getItem('uploadedImage') ?? '';
+  const caption = localStorage.getItem('caption') ?? '';
+  const to = localStorage.getItem('cardTo') ?? '';
+  const message = localStorage.getItem('cardMessage') ?? '';
+  const from = localStorage.getItem('cardFrom') ?? '';
+  
+  // Simple hash of all data fields
+  const combined = `${dataUrl.length}:${caption}:${to}:${message}:${from}`;
+  let hash = 0;
+  for (let i = 0; i < combined.length; i++) {
+    const char = combined.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash.toString(36); // Base36 for shorter string
+}
+
+/**
+ * Validate cached share link.
+ * Returns cached URL if:
+ *   1. URL exists in cache
+ *   2. Data signature matches (data hasn't changed)
+ *   3. Not expired (within 30 minutes)
+ * Returns null if cache is invalid/expired.
+ */
+function getValidCachedUrl(): string | null {
+  const cachedUrl = sessionStorage.getItem(CACHE_KEY_URL);
+  const cachedSignature = sessionStorage.getItem(CACHE_KEY_SIGNATURE);
+  const cachedTimestamp = sessionStorage.getItem(CACHE_KEY_TIMESTAMP);
+  
+  if (!cachedUrl || !cachedSignature || !cachedTimestamp) {
+    return null; // No complete cache
+  }
+  
+  // Check expiration
+  const now = Date.now();
+  const timestamp = parseInt(cachedTimestamp, 10);
+  if (now - timestamp > CACHE_DURATION_MS) {
+    console.log('[Cache] Expired, creating new link');
+    clearShareCache();
+    return null;
+  }
+  
+  // Check data signature (detect edits)
+  const currentSignature = generateDataSignature();
+  if (cachedSignature !== currentSignature) {
+    console.log('[Cache] Data changed, creating new link');
+    clearShareCache();
+    return null;
+  }
+  
+  // Cache is valid
+  const remainingMinutes = Math.round((CACHE_DURATION_MS - (now - timestamp)) / 60000);
+  console.log(`[Cache] Valid for ${remainingMinutes} more minutes`);
+  return cachedUrl;
+}
+
+/**
+ * Store share link in cache with current data signature and timestamp.
+ */
+function setShareCache(url: string): void {
+  const signature = generateDataSignature();
+  sessionStorage.setItem(CACHE_KEY_URL, url);
+  sessionStorage.setItem(CACHE_KEY_SIGNATURE, signature);
+  sessionStorage.setItem(CACHE_KEY_TIMESTAMP, Date.now().toString());
+  console.log('[Cache] Stored new link, expires in 30 minutes');
+}
+
+/**
+ * Clear all share cache entries.
+ */
+function clearShareCache(): void {
+  sessionStorage.removeItem(CACHE_KEY_URL);
+  sessionStorage.removeItem(CACHE_KEY_SIGNATURE);
+  sessionStorage.removeItem(CACHE_KEY_TIMESTAMP);
+}
+
 // Helper: Create share link (upload + insert)
 async function createShareLink(): Promise<string> {
   const dataUrl = localStorage.getItem('uploadedImage');
@@ -92,22 +181,24 @@ export default function PreviewPage() {
     }
   };
 
-  // Create share link on mount (check cache first)
+  // Create share link on mount (check cache with validation)
   useEffect(() => {
-    const cachedUrl = sessionStorage.getItem('share_url');
-    if (cachedUrl) {
-      setShareUrl(cachedUrl);
+    // Try to get valid cached URL (checks data signature + expiration)
+    const validCachedUrl = getValidCachedUrl();
+    
+    if (validCachedUrl) {
+      setShareUrl(validCachedUrl);
       setShareStatus('ready');
       return;
     }
 
-    // Create new share link
+    // No valid cache - create new share link
     setShareStatus('creating');
     createShareLink()
       .then((url) => {
         setShareUrl(url);
         setShareStatus('ready');
-        sessionStorage.setItem('share_url', url);
+        setShareCache(url); // Store with signature and timestamp
       })
       .catch((error) => {
         console.error('Failed to create share link:', error);
@@ -270,7 +361,7 @@ export default function PreviewPage() {
       const url = await createShareLink();
       setShareUrl(url);
       setShareStatus('ready');
-      sessionStorage.setItem('share_url', url);
+      setShareCache(url); // Store with signature and timestamp
     } catch (error: any) {
       setShareError(error.message);
       setShareStatus('error');
