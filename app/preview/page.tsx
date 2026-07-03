@@ -183,6 +183,23 @@ export default function PreviewPage() {
 
   // Create share link on mount (check cache with validation)
   useEffect(() => {
+    // Check for required localStorage data first
+    const hasImage = !!localStorage.getItem('uploadedImage');
+    const hasTo = !!localStorage.getItem('cardTo');
+    const hasMessage = !!localStorage.getItem('cardMessage');
+    const hasFrom = !!localStorage.getItem('cardFrom');
+    
+    if (!hasImage) {
+      console.error('[Share] No uploaded image found in localStorage');
+      setShareError('No photo found. Please go back and upload a photo.');
+      setShareStatus('error');
+      return;
+    }
+    
+    if (!hasTo || !hasMessage || !hasFrom) {
+      console.warn('[Share] Incomplete postcard data:', { hasTo, hasMessage, hasFrom });
+    }
+    
     // Try to get valid cached URL (checks data signature + expiration)
     const validCachedUrl = getValidCachedUrl();
     
@@ -201,8 +218,24 @@ export default function PreviewPage() {
         setShareCache(url); // Store with signature and timestamp
       })
       .catch((error) => {
-        console.error('Failed to create share link:', error);
-        setShareError(error.message);
+        console.error('[Share] Failed to create share link:', error);
+        console.error('[Share] Error details:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+        });
+        
+        // Provide user-friendly error messages
+        let userMessage = error.message;
+        if (error.message?.includes('storage')) {
+          userMessage = 'Storage upload failed. Check Supabase bucket exists and RLS policies.';
+        } else if (error.message?.includes('Database')) {
+          userMessage = 'Database save failed. Check table exists and RLS policies.';
+        } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+          userMessage = 'Network error. Please check your internet connection.';
+        }
+        
+        setShareError(userMessage);
         setShareStatus('error');
       });
   }, []);
@@ -363,7 +396,19 @@ export default function PreviewPage() {
       setShareStatus('ready');
       setShareCache(url); // Store with signature and timestamp
     } catch (error: any) {
-      setShareError(error.message);
+      console.error('[Share] Retry failed:', error);
+      
+      // Provide user-friendly error messages
+      let userMessage = error.message;
+      if (error.message?.includes('storage')) {
+        userMessage = 'Storage upload failed. Check Supabase bucket exists and RLS policies.';
+      } else if (error.message?.includes('Database')) {
+        userMessage = 'Database save failed. Check table exists and RLS policies.';
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        userMessage = 'Network error. Please check your internet connection.';
+      }
+      
+      setShareError(userMessage);
       setShareStatus('error');
     }
   };
@@ -602,6 +647,34 @@ export default function PreviewPage() {
               {shareStatus === 'ready' && <span style={{ fontSize: 18, lineHeight: 1 }}>›</span>}
             </button>
           </div>
+          
+          {/* Error message display */}
+          {shareStatus === 'error' && shareError && (
+            <div style={{ marginTop: '12px' }}>
+              <p 
+                style={{ 
+                  color: '#ff6b6b', 
+                  fontFamily: 'var(--font-courier, Courier, monospace)',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  lineHeight: '1.4',
+                  maxWidth: '300px',
+                }}
+              >
+                {shareError}
+              </p>
+              <p 
+                style={{ 
+                  color: '#6b6b6b', 
+                  fontFamily: 'var(--font-courier, Courier, monospace)',
+                  fontSize: '12px',
+                  marginTop: '4px',
+                }}
+              >
+                Check console (F12) for details or try again.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Scene area */}
